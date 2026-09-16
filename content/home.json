@@ -5,7 +5,7 @@
     "organizationNumber": "",
     "displayName": "MAWA Reklam",
     "language": "sv",
-    "primaryColor": "#2eacf0",
+    "primaryColor": "#109ae5",
     "secondaryColor": "#ff19ac",
     "headingFont": "Georgia, \"Times New Roman\", serif",
     "bodyFont": "Arial, sans-serif",
@@ -235,11 +235,11 @@
     "logoWidth": "42px",
     "imageRatio": "4 / 3",
     "heroImage": {
-      "url": "assets/generated/mawa-reklam-media-gallery-9.jpg",
+      "url": "assets/generated/mawa-reklam-media-heroImage.webp",
       "alt": "MAWA Reklam arbetar med profilering och dekor"
     },
     "aboutImage": {
-      "url": "assets/generated/mawa-reklam-user-2.jpg",
+      "url": "assets/generated/mawa-reklam-media-aboutImage.webp",
       "alt": "MAWA Reklam erbjuder helhetslösningar inom skyltar och dekor"
     },
     "galleryEnabled": true,
@@ -283,7 +283,7 @@
         "alt": ""
       },
       {
-        "url": "assets/generated/mawa-reklam-media-gallery-9.jpg",
+        "url": "assets/generated/mawa-reklam-media-heroImage.webp",
         "alt": ""
       }
     ]
