@@ -248,18 +248,28 @@
     var sameAs = Object.values(footer.socialLinks || {}).filter(function (value) {
       return hasText(value);
     });
-    var openingHoursSpecification = ((content.openingHours && content.openingHours.days) || [])
-      .filter(function (item) {
-        return item && item.closed !== true && hasText(item.opens) && hasText(item.closes);
-      })
-      .map(function (item) {
-        return {
-          "@type": "OpeningHoursSpecification",
-          dayOfWeek: schemaDayNames[item.day] || item.day,
-          opens: item.opens,
-          closes: item.closes
-        };
-      });
+    var openingHours = content.openingHours || {};
+    var openingHoursSpecification = openingHours.alwaysOpen === true
+      ? Object.keys(schemaDayNames).map(function (day) {
+          return {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: schemaDayNames[day],
+            opens: "00:00",
+            closes: "23:59"
+          };
+        })
+      : ((openingHours.days) || [])
+        .filter(function (item) {
+          return item && item.closed !== true && hasText(item.opens) && hasText(item.closes);
+        })
+        .map(function (item) {
+          return {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: schemaDayNames[item.day] || item.day,
+            opens: item.opens,
+            closes: item.closes
+          };
+        });
 
     var graph = [
       {
@@ -276,6 +286,7 @@
         logo: logoUrl,
         image: [heroImageUrl].concat(galleryImages).filter(Boolean),
         sameAs: sameAs,
+        openingHours: openingHours.alwaysOpen === true ? "Mo-Su 00:00-23:59" : undefined,
         openingHoursSpecification: openingHoursSpecification,
         makesOffer: serviceOffers
       },
@@ -582,6 +593,67 @@
       .join("");
   }
 
+  function getHeroButtons(content) {
+    var hero = content && content.hero ? content.hero : {};
+    if (Array.isArray(hero.buttons)) {
+      return hero.buttons.filter(function (button) {
+        return button && hasText(button.label) && hasText(button.target);
+      });
+    }
+
+    return hasText(hero.primaryCtaLabel)
+      ? [{
+          label: hero.primaryCtaLabel,
+          variant: "primary",
+          linkType: String(hero.primaryCtaHref || "").indexOf("#") === 0 ? "section" : "external",
+          target: String(hero.primaryCtaHref || "#contact").replace(/^#/, ""),
+        }]
+      : [];
+  }
+
+  function heroButtonHref(button) {
+    return button.linkType === "external"
+      ? button.target
+      : "#" + String(button.target || "").replace(/^#/, "");
+  }
+
+  function renderHeroButtons(content) {
+    var container = document.getElementById("hero-actions");
+    var buttons = getHeroButtons(content);
+    var allowedVariants = ["primary", "secondary", "ghost", "secondary-ghost"];
+
+    if (container) {
+      container.innerHTML = "";
+      buttons.forEach(function (button, index) {
+        var link = document.createElement("a");
+        var variant = allowedVariants.indexOf(button.variant) >= 0 ? button.variant : "primary";
+        link.className = "showcase-button showcase-button--" + variant;
+        link.href = heroButtonHref(button);
+        link.textContent = button.label;
+        if (index === 0) link.id = "hero-primary-cta";
+        if (button.linkType === "external") {
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+        }
+        container.appendChild(link);
+      });
+    }
+
+    if (buttons.length) {
+      setLink("nav-cta-link", heroButtonHref(buttons[0]), buttons[0].label, true);
+      var navLink = document.getElementById("nav-cta-link");
+      if (navLink && buttons[0].linkType === "external") {
+        navLink.target = "_blank";
+        navLink.rel = "noopener noreferrer";
+      } else if (navLink) {
+        navLink.removeAttribute("target");
+        navLink.removeAttribute("rel");
+      }
+    } else {
+      setLink("nav-cta-link", "#", "", false);
+    }
+  }
+
   function renderOpeningHours(content) {
     var section = document.getElementById("opening-hours");
     var list = document.getElementById("opening-hours-list");
@@ -589,10 +661,13 @@
 
     var openingHours = content.openingHours || {};
     var days = Array.isArray(openingHours.days) ? openingHours.days : [];
+    var hasAnyTime = days.some(function (item) {
+      return item && (hasText(item.opens) || hasText(item.closes));
+    });
     var visibleDays = days.filter(function (item) {
       return item && (item.closed === true || hasText(item.opens) || hasText(item.closes));
     });
-    var visible = openingHours.enabled !== false && visibleDays.length > 0;
+    var visible = openingHours.enabled !== false && (openingHours.alwaysOpen === true || (hasAnyTime && visibleDays.length > 0));
 
     if (section) section.hidden = !visible;
     list.innerHTML = "";
@@ -601,7 +676,9 @@
     setText("opening-hours-eyebrow", sectionEyebrow(content, "openingHours", "Öppettider"));
     setText("opening-hours-heading", openingHours.heading || "Öppettider");
     setText("opening-hours-body", openingHours.body || "");
-    list.innerHTML = visibleDays
+    list.innerHTML = openingHours.alwaysOpen === true
+      ? '<div class="opening-hours-row"><span class="opening-hours-row__day">Öppettider</span><span class="opening-hours-row__time">Alltid öppet</span></div>'
+      : visibleDays
       .map(function (item) {
         var timeLabel = item.closed === true
           ? "Stängt"
@@ -649,11 +726,17 @@
       .map(function (item) {
         return [
           '<figure class="gallery-card">',
-          '  <img class="gallery-card__image" loading="lazy" src="' +
+          '  <button class="gallery-card__button" type="button" data-gallery-full-src="' +
+            escapeHtml(item.url) +
+            '" data-gallery-alt="' +
+            escapeHtml(item.alt || "") +
+            '" aria-label="Visa bild i fullstorlek">',
+          '    <img class="gallery-card__image" loading="lazy" decoding="async" src="' +
             escapeHtml(item.url) +
             '" alt="' +
             escapeHtml(item.alt || "") +
             '">',
+          "  </button>",
           "</figure>",
         ].join("");
       })
@@ -669,18 +752,6 @@
       hasText(content.contact && content.contact.email) ||
       hasText(content.contact && content.contact.address);
     setHidden("contact", !visible);
-    setLink(
-      "nav-cta-link",
-      content.hero && content.hero.primaryCtaHref,
-      content.hero && content.hero.primaryCtaLabel,
-      visible && hasText(content.hero && content.hero.primaryCtaLabel),
-    );
-    setLink(
-      "hero-primary-cta",
-      content.hero && content.hero.primaryCtaHref,
-      content.hero && content.hero.primaryCtaLabel,
-      visible && hasText(content.hero && content.hero.primaryCtaLabel),
-    );
     if (!section || !visible) return;
 
     setText("contact-heading", content.contact.heading);
@@ -788,6 +859,7 @@
     setText("footer-copyright", content.footer.copyright);
 
     renderHeroVisual(content);
+    renderHeroButtons(content);
     renderIntro(content);
     renderServices(content);
     renderAbout(content);

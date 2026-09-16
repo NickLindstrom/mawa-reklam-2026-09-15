@@ -38,7 +38,15 @@
     "headline": "Vi skapar synlighet som håller i längden",
     "subheadline": "MAWA Reklam designar, producerar och monterar fordonsdekor, butiksdekor, skyltar, dekaler, flaggor, vepor och trycksaker för företag i hela Sverige.",
     "primaryCtaLabel": "Kontakta oss",
-    "primaryCtaHref": "#contact"
+    "primaryCtaHref": "#contact",
+    "buttons": [
+      {
+        "label": "Kontakta oss",
+        "variant": "primary",
+        "linkType": "section",
+        "target": "contact"
+      }
+    ]
   },
   "intro": {
     "enabled": true,
@@ -231,6 +239,7 @@
   },
   "media": {
     "logoUrl": "assets/generated/mawa-reklam-logo.png",
+    "faviconUrl": null,
     "headerLogoOnly": true,
     "logoWidth": "100px",
     "imageRatio": "",

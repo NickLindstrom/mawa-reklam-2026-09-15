@@ -457,6 +457,22 @@ function setTitle(html, title) {
   );
 }
 
+function getFaviconMimeType(value) {
+  const pathname = String(value || "").split(/[?#]/, 1)[0].toLowerCase();
+
+  if (pathname.endsWith(".svg")) return "image/svg+xml";
+  if (pathname.endsWith(".ico")) return "image/x-icon";
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  return "image/png";
+}
+
+function applyFavicon(html, content) {
+  const href = content.media?.faviconUrl || "assets/sajt24-favicon.svg";
+  html = setAttributeById(html, "site-favicon", "href", href);
+  return setAttributeById(html, "site-favicon", "type", getFaviconMimeType(href));
+}
+
 function upsertHeadLink(html, rel, href) {
   if (!hasText(href)) {
     return html;
@@ -519,6 +535,61 @@ function renderServices(items = []) {
           </p>
         </article>
       `;
+    })
+    .join("");
+}
+
+function getHeroButtons(content) {
+  const hero = content.hero || {};
+  const buttons = Array.isArray(hero.buttons)
+    ? hero.buttons
+    : hasText(hero.primaryCtaLabel)
+      ? [{
+          label: hero.primaryCtaLabel,
+          variant: "primary",
+          linkType: String(hero.primaryCtaHref || "").startsWith("#") ? "section" : "external",
+          target: String(hero.primaryCtaHref || "#contact").replace(/^#/, ""),
+        }]
+      : [];
+
+  return buttons.filter(
+    (button) => button && hasText(button.label) && hasText(button.target),
+  );
+}
+
+function getHeroButtonHref(button) {
+  return button.linkType === "external"
+    ? button.target
+    : `#${String(button.target || "").replace(/^#/, "")}`;
+}
+
+function renderHeroButtons(content) {
+  const theme = content.site?.theme || "classic";
+  const classPrefix =
+    theme === "editorial"
+      ? "editorial-button editorial-button--"
+      : theme === "showcase"
+        ? "showcase-button showcase-button--"
+        : "button button--";
+  const allowedVariants = new Set([
+    "primary",
+    "secondary",
+    "ghost",
+    "secondary-ghost",
+  ]);
+
+  return getHeroButtons(content)
+    .map((button, index) => {
+      const variant = allowedVariants.has(button.variant)
+        ? button.variant
+        : "primary";
+      const externalAttributes =
+        button.linkType === "external"
+          ? ' target="_blank" rel="noopener noreferrer"'
+          : "";
+      const id = index === 0 ? ' id="hero-primary-cta"' : "";
+
+      return `<a${id} class="${classPrefix}${variant}" href="${escapeHtml(getHeroButtonHref(button))}"${externalAttributes}>${escapeHtml(button.label)}</a>`;
     })
     .join("");
 }
@@ -662,13 +733,21 @@ function renderGallery(items = []) {
     .map(
       (item) => `
         <figure class="gallery-card">
-          <img
-            class="gallery-card__image"
-            src="${escapeHtml(item.url)}"
-            alt="${escapeHtml(item.alt || "")}"
-            loading="lazy"
-            decoding="async"
+          <button
+            class="gallery-card__button"
+            type="button"
+            data-gallery-full-src="${escapeHtml(item.url)}"
+            data-gallery-alt="${escapeHtml(item.alt || "")}"
+            aria-label="Visa bild i fullstorlek"
           >
+            <img
+              class="gallery-card__image"
+              src="${escapeHtml(item.url)}"
+              alt="${escapeHtml(item.alt || "")}"
+              loading="lazy"
+              decoding="async"
+            >
+          </button>
         </figure>
       `,
     )
@@ -738,6 +817,14 @@ function renderBrand(content, footer = false) {
 }
 
 function renderOpeningHoursDays(days = []) {
+  const hasAnyTime = days.some(
+    (item) => item && (hasText(item.opens) || hasText(item.closes)),
+  );
+
+  if (!hasAnyTime) {
+    return "";
+  }
+
   return days
     .filter(
       (item) =>
@@ -871,25 +958,33 @@ function buildJsonLd(content, pageUrl) {
     ),
   );
 
-  const openingHoursSpecification = Array.isArray(openingHours.days)
-    ? openingHours.days
-        .filter(
-          (item) =>
-            item &&
-            item.closed !== true &&
-            hasText(item.opens) &&
-            hasText(item.closes),
-        )
-        .map((item) => ({
+  const openingHoursSpecification =
+    openingHours.alwaysOpen === true
+      ? Object.values(schemaDayNames).map((dayOfWeek) => ({
           "@type": "OpeningHoursSpecification",
-
-          dayOfWeek: schemaDayNames[item.day] || item.day,
-
-          opens: item.opens,
-
-          closes: item.closes,
+          dayOfWeek,
+          opens: "00:00",
+          closes: "23:59",
         }))
-    : [];
+      : Array.isArray(openingHours.days)
+        ? openingHours.days
+            .filter(
+              (item) =>
+                item &&
+                item.closed !== true &&
+                hasText(item.opens) &&
+                hasText(item.closes),
+            )
+            .map((item) => ({
+              "@type": "OpeningHoursSpecification",
+
+              dayOfWeek: schemaDayNames[item.day] || item.day,
+
+              opens: item.opens,
+
+              closes: item.closes,
+            }))
+        : [];
 
   const businessType = hasText(site.schemaType)
     ? site.schemaType
@@ -934,6 +1029,9 @@ function buildJsonLd(content, pageUrl) {
       image: [heroImageUrl].concat(galleryImages).filter(Boolean),
 
       sameAs,
+
+      openingHours:
+        openingHours.alwaysOpen === true ? "Mo-Su 00:00-23:59" : undefined,
 
       openingHoursSpecification,
 
@@ -1097,6 +1195,8 @@ function renderPage(content) {
 
   html = applySeo(html, content, pageUrl);
 
+  html = applyFavicon(html, content);
+
   html = upsertJsonLd(html, jsonLdBody);
 
   html = applyThemeStylesheet(html, content);
@@ -1115,19 +1215,24 @@ function renderPage(content) {
 
   html = setText(html, "hero-subheadline", content.hero?.subheadline);
 
-  html = setLink(
-    html,
-    "hero-primary-cta",
-    content.hero?.primaryCtaHref || "#contact",
-    content.hero?.primaryCtaLabel || "Kontakta oss",
-  );
+  const heroButtons = getHeroButtons(content);
+  const firstHeroButton = heroButtons[0];
 
-  html = setLink(
-    html,
-    "nav-cta-link",
-    content.hero?.primaryCtaHref || "#contact",
-    content.hero?.primaryCtaLabel || "Kontakt",
-  );
+  html = replaceInnerById(html, "hero-actions", renderHeroButtons(content));
+
+  if (firstHeroButton) {
+    html = setLink(
+      html,
+      "nav-cta-link",
+      getHeroButtonHref(firstHeroButton),
+      firstHeroButton.label,
+    );
+
+    if (firstHeroButton.linkType === "external") {
+      html = setAttributeById(html, "nav-cta-link", "target", "_blank");
+      html = setAttributeById(html, "nav-cta-link", "rel", "noopener noreferrer");
+    }
+  }
 
   html = setHiddenById(html, "top", content.hero?.enabled === false);
 
@@ -1313,13 +1418,7 @@ function renderPage(content) {
   html = setHiddenById(
     html,
     "nav-cta-link",
-    !contactVisible || !hasText(content.hero?.primaryCtaLabel),
-  );
-
-  html = setHiddenById(
-    html,
-    "hero-primary-cta",
-    !contactVisible || !hasText(content.hero?.primaryCtaLabel),
+    heroButtons.length === 0,
   );
 
   /* Opening hours */
@@ -1330,21 +1429,25 @@ function renderPage(content) {
     ? openingHours.days
     : [];
 
-  const openingHoursHtml = renderOpeningHoursDays(openingHourDays);
+  const openingHoursHtml =
+    openingHours.alwaysOpen === true
+      ? '<div class="opening-hours-row"><span class="opening-hours-row__day">Öppettider</span><span class="opening-hours-row__time">Alltid öppet</span></div>'
+      : renderOpeningHoursDays(openingHourDays);
 
   const openingHoursVisible =
-    openingHours.enabled !== false && hasText(openingHoursHtml);
+    openingHours.enabled !== false &&
+    (openingHours.alwaysOpen === true || hasText(openingHoursHtml));
 
   html = setText(
     html,
     "opening-hours-eyebrow",
-    openingHours.eyebrow || "Öppettider",
+    openingHours.eyebrow || "",
   );
 
   html = setText(
     html,
     "opening-hours-heading",
-    openingHours.heading || "Öppettider",
+    openingHours.heading || "",
   );
 
   html = setText(html, "opening-hours-body", openingHours.body || "");
