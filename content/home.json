@@ -239,7 +239,7 @@
   },
   "media": {
     "logoUrl": "assets/generated/mawa-reklam-logo.png",
-    "faviconUrl": null,
+    "faviconUrl": "assets/generated/mawa-reklam-logo.png",
     "headerLogoOnly": true,
     "logoWidth": "100px",
     "imageRatio": "",
