@@ -161,9 +161,9 @@
   },
   "openingHours": {
     "enabled": false,
-    "alwaysOpen": true,
-    "eyebrow": "Öppettider",
-    "heading": "Öppettider",
+    "alwaysOpen": false,
+    "eyebrow": "",
+    "heading": "",
     "body": "",
     "days": [
       {
