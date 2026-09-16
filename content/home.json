@@ -231,9 +231,9 @@
   },
   "media": {
     "logoUrl": "assets/generated/mawa-reklam-logo.png",
-    "headerLogoOnly": false,
-    "logoWidth": "42px",
-    "imageRatio": "4 / 3",
+    "headerLogoOnly": true,
+    "logoWidth": "100px",
+    "imageRatio": "",
     "heroImage": {
       "url": "assets/generated/mawa-reklam-media-heroImage.webp",
       "alt": "MAWA Reklam arbetar med profilering och dekor"
